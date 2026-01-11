@@ -2,20 +2,22 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
-import { useRouter } from 'next/navigation'; // Necesario para volver al menú
+import { useRouter } from 'next/navigation';
 import { Trophy, RefreshCw, MapPin, Star, Lightbulb, ArrowRightLeft, Keyboard, Send, Timer, Home } from 'lucide-react';
 
 interface Place {
   id: number;
   name: string;
   capital: string;
+  region: string;
   other_cities: string[]; 
   fun_facts: string[];    
   image_url: string;      
 }
 
-const MAX_QUESTIONS = 15;
-const INPUT_MODE_START_INDEX = 10;
+// 13 PAÍSES EN TOTAL
+const MAX_QUESTIONS = 13;
+const INPUT_MODE_START_INDEX = 8;
 const TIME_LIMIT_NORMAL = 15;
 const TIME_LIMIT_BOSS = 30;
 
@@ -23,11 +25,10 @@ const normalizeText = (text: string) => {
   return text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 };
 
-export default function GameColombia() {
-  const router = useRouter(); // Hook para navegación
+export default function GameCentroNorte() {
+  const router = useRouter();
   const [allPlaces, setAllPlaces] = useState<Place[]>([]);
   
-  // Estados del juego
   const [gameQueue, setGameQueue] = useState<Place[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [currentPlace, setCurrentPlace] = useState<Place | null>(null);
@@ -49,18 +50,18 @@ export default function GameColombia() {
   const [isCorrect, setIsCorrect] = useState(false);
   const [loading, setLoading] = useState(true);
   const [gameOver, setGameOver] = useState(false);
-  const [savingScore, setSavingScore] = useState(false); // Nuevo estado visual
+  const [savingScore, setSavingScore] = useState(false);
 
   const startTimeRef = useRef<number>(0);
 
   useEffect(() => {
     async function fetchPlaces() {
-      // AQUÍ ESTABA EL ERROR: Le faltaba el filtro de región
+      // FILTRO PARA ESTE NIVEL
       const { data, error } = await supabase
         .from('places')
         .select('*')
-        .eq('region', 'colombia'); // <--- AGREGA ESTA LÍNEA
-      
+        .eq('region', 'centro_norteamerica');
+        
       if (data) {
         setAllPlaces(data);
         startNewGame(data);
@@ -70,7 +71,6 @@ export default function GameColombia() {
     fetchPlaces();
   }, []);
 
-  // Lógica del Timer
   useEffect(() => {
     if (!isTimerRunning || showFeedback || gameOver) return;
     if (timeLeft <= 0) {
@@ -83,7 +83,7 @@ export default function GameColombia() {
     return () => clearInterval(timerId);
   }, [timeLeft, isTimerRunning, showFeedback, gameOver]);
 
-  const saveGameResult = async (finalScore: number) => {
+const saveGameResult = async (finalScore: number) => {
   setSavingScore(true);
 
   // NUEVO: Calcular duración en segundos
@@ -98,7 +98,7 @@ export default function GameColombia() {
       player_email: user.email,
       score: finalScore,
       total_questions: MAX_QUESTIONS,
-      game_mode: 'colombia', // (Recuerda cambiar esto según el archivo: 'suramerica', etc.)
+      game_mode: 'centro_norteamerica', // (Recuerda cambiar esto según el archivo: 'suramerica', etc.)
       total_time: durationSeconds // <--- AQUÍ GUARDAMOS EL TIEMPO
     });
   }
@@ -114,7 +114,8 @@ export default function GameColombia() {
   const startNewGame = (placesList: Place[] = allPlaces) => {
     if (placesList.length === 0) return;
     const shuffled = [...placesList].sort(() => 0.5 - Math.random());
-    const selectedQuestions = shuffled.slice(0, MAX_QUESTIONS);
+    const limit = Math.min(MAX_QUESTIONS, placesList.length);
+    const selectedQuestions = shuffled.slice(0, limit);
     
     setGameQueue(selectedQuestions);
     setScore(0);
@@ -138,7 +139,7 @@ export default function GameColombia() {
     if (place.fun_facts && place.fun_facts.length > 0) {
       setCurrentFact(place.fun_facts[Math.floor(Math.random() * place.fun_facts.length)]);
     } else {
-      setCurrentFact("¡Colombia es asombrosa!");
+      setCurrentFact("¡Esta región es increíble!");
     }
 
     setIsInputMode(bossMode);
@@ -176,16 +177,15 @@ export default function GameColombia() {
     setIsCorrect(isAnswerCorrect);
     setShowFeedback(true);
     
-    // IMPORTANTE: Calculamos el nuevo score aquí para pasarlo actualizado
     const newScore = isAnswerCorrect ? score + 1 : score;
     if (isAnswerCorrect) setScore(newScore);
   };
 
   const nextQuestion = () => {
     const nextIndex = currentIndex + 1;
-    if (nextIndex >= MAX_QUESTIONS) {
+    if (nextIndex >= gameQueue.length) {
       setGameOver(true);
-      saveGameResult(score); // <--- GUARDAMOS AL TERMINAR
+      saveGameResult(score);
     } else {
       setCurrentIndex(nextIndex);
       prepareRound(gameQueue[nextIndex], nextIndex, allPlaces);
@@ -198,45 +198,33 @@ export default function GameColombia() {
     }
   };
 
-  // Barra de progreso
   const progressPercent = (timeLeft / maxTime) * 100;
   let barColor = 'bg-green-500';
   if (progressPercent < 60) barColor = 'bg-yellow-500';
   if (progressPercent < 30) barColor = 'bg-red-500';
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-50 font-bold text-slate-500">Cargando...</div>;
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-50 font-bold text-slate-500">Cargando Mapa...</div>;
 
-  // --- PANTALLA GAME OVER ---
   if (gameOver) {
     return (
       <main className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
         <div className="bg-white p-8 rounded-3xl shadow-xl w-full max-w-md text-center border-b-8 border-yellow-400">
           <Trophy size={64} className="mx-auto text-yellow-500 mb-4" />
-          <h1 className="text-3xl font-black text-slate-800 mb-2">¡Entrenamiento Finalizado!</h1>
+          <h1 className="text-3xl font-black text-slate-800 mb-2">¡Norte y Centro Completado!</h1>
           
           <div className="bg-blue-50 rounded-xl p-6 mb-8 mt-6">
             <p className="text-sm uppercase tracking-widest text-blue-500 font-bold mb-1">Tu Puntaje</p>
-            <p className="text-6xl font-black text-blue-900">{score} <span className="text-2xl text-blue-300">/ {MAX_QUESTIONS}</span></p>
+            <p className="text-6xl font-black text-blue-900">{score} <span className="text-2xl text-blue-300">/ {gameQueue.length}</span></p>
           </div>
 
           {savingScore && <p className="text-sm text-slate-400 mb-4 animate-pulse">Guardando tu progreso...</p>}
 
           <div className="flex flex-col gap-3">
-            <button 
-              onClick={() => startNewGame()}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-xl shadow-lg flex items-center justify-center gap-2"
-            >
-              <RefreshCw size={20} />
-              Jugar de Nuevo
+            <button onClick={() => startNewGame()} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-xl shadow-lg flex items-center justify-center gap-2">
+              <RefreshCw size={20} /> Reintentar
             </button>
-
-            {/* BOTÓN PARA VOLVER AL MENÚ */}
-            <button 
-              onClick={() => router.push('/')}
-              className="w-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-4 px-6 rounded-xl flex items-center justify-center gap-2"
-            >
-              <Home size={20} />
-              Volver al Menú
+            <button onClick={() => router.push('/')} className="w-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-4 px-6 rounded-xl flex items-center justify-center gap-2">
+              <Home size={20} /> Volver al Menú
             </button>
           </div>
         </div>
@@ -244,15 +232,14 @@ export default function GameColombia() {
     );
   }
 
-  // --- PANTALLA JUEGO ---
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900 p-4 font-sans flex flex-col items-center">
       <div className="w-full max-w-md flex justify-between items-center mb-2 mt-2">
         <div className="flex flex-col">
           <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-            {isInputMode ? 'NIVEL EXPERTO' : 'Ronda'}
+            {isInputMode ? 'NIVEL EXPERTO' : 'Centro y Norte'}
           </span>
-          <span className="text-xl font-black text-slate-700">{currentIndex + 1} <span className="text-slate-300">/ {MAX_QUESTIONS}</span></span>
+          <span className="text-xl font-black text-slate-700">{currentIndex + 1} <span className="text-slate-300">/ {gameQueue.length}</span></span>
         </div>
         <div className="flex items-center gap-2 bg-yellow-100 px-4 py-2 rounded-full text-yellow-800 font-bold shadow-sm">
           <Star size={18} fill="currentColor" />
@@ -261,10 +248,7 @@ export default function GameColombia() {
       </div>
 
       <div className="w-full max-w-md bg-slate-200 rounded-full h-2.5 mb-6 overflow-hidden">
-        <div 
-          className={`h-2.5 rounded-full transition-all duration-1000 ease-linear ${barColor}`} 
-          style={{ width: `${progressPercent}%` }}
-        ></div>
+        <div className={`h-2.5 rounded-full transition-all duration-1000 ease-linear ${barColor}`} style={{ width: `${progressPercent}%` }}></div>
       </div>
 
       {currentPlace && (
@@ -273,21 +257,14 @@ export default function GameColombia() {
             <div className={`absolute top-0 left-0 w-full h-2 ${isInputMode ? 'bg-amber-500' : (questionType === 'standard' ? 'bg-blue-500' : 'bg-purple-500')}`}></div>
             
             {timeLeft === 0 && !showFeedback && (
-               <div className="absolute inset-0 bg-red-50/90 flex items-center justify-center z-10">
-                 <p className="text-red-600 font-black text-xl flex items-center gap-2"><Timer /> ¡Tiempo Agotado!</p>
-               </div>
+               <div className="absolute inset-0 bg-red-50/90 flex items-center justify-center z-10"><p className="text-red-600 font-black text-xl flex items-center gap-2"><Timer /> ¡Tiempo Agotado!</p></div>
             )}
-
-            {isInputMode && (
-               <div className="absolute top-3 right-3 text-amber-500 animate-pulse">
-                 <Keyboard size={24} />
-               </div>
-            )}
+            {isInputMode && <div className="absolute top-3 right-3 text-amber-500 animate-pulse"><Keyboard size={24} /></div>}
 
             {questionType === 'standard' ? (
               <>
                 <MapPin className={`mx-auto mb-2 ${isInputMode ? 'text-amber-500' : 'text-blue-500'}`} size={32} />
-                <p className="text-slate-400 uppercase tracking-widest text-xs font-bold mb-1">Departamento</p>
+                <p className="text-slate-400 uppercase tracking-widest text-xs font-bold mb-1">País</p>
                 <h2 className="text-3xl font-black text-slate-800 mb-1 leading-tight">{currentPlace.name}</h2>
                 <p className="text-lg text-slate-500">{isInputMode ? 'Escribe su capital:' : '¿Cuál es su capital?'}</p>
               </>
@@ -296,7 +273,7 @@ export default function GameColombia() {
                 <ArrowRightLeft className={`mx-auto mb-2 ${isInputMode ? 'text-amber-500' : 'text-purple-500'}`} size={32} />
                 <p className="text-slate-400 uppercase tracking-widest text-xs font-bold mb-1">Ciudad Capital</p>
                 <h2 className="text-3xl font-black text-slate-800 mb-1 leading-tight">{currentPlace.capital}</h2>
-                <p className="text-lg text-slate-500">{isInputMode ? 'Escribe el departamento:' : '¿A qué departamento pertenece?'}</p>
+                <p className="text-lg text-slate-500">{isInputMode ? 'Escribe el país:' : '¿A qué país pertenece?'}</p>
               </>
             )}
           </div>
@@ -316,13 +293,7 @@ export default function GameColombia() {
                     className="w-full p-4 pl-5 rounded-2xl border-2 border-slate-300 text-xl focus:border-amber-500 focus:ring-4 focus:ring-amber-100 outline-none transition-all text-center font-bold text-slate-700 placeholder:font-normal"
                     autoComplete="off"
                   />
-                  <button 
-                    onClick={() => handleAnswer(userInputValue)}
-                    disabled={!userInputValue.trim() || timeLeft === 0}
-                    className="absolute right-2 top-2 bottom-2 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl px-4 transition-colors"
-                  >
-                    <Send size={20} />
-                  </button>
+                  <button onClick={() => handleAnswer(userInputValue)} disabled={!userInputValue.trim() || timeLeft === 0} className="absolute right-2 top-2 bottom-2 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl px-4 transition-colors"><Send size={20} /></button>
                 </div>
               </div>
             ) : (
@@ -335,9 +306,7 @@ export default function GameColombia() {
                     className="bg-white hover:bg-blue-50 border-b-4 border-slate-200 hover:border-blue-500 text-slate-700 hover:text-blue-700 font-bold py-4 px-6 rounded-2xl text-lg transition-all active:scale-95 text-left flex justify-between items-center group"
                   >
                     {option}
-                    <div className="w-6 h-6 rounded-full border-2 border-slate-200 group-hover:border-blue-500 flex items-center justify-center">
-                      <div className="w-3 h-3 rounded-full bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                    </div>
+                    <div className="w-6 h-6 rounded-full border-2 border-slate-200 group-hover:border-blue-500 flex items-center justify-center"><div className="w-3 h-3 rounded-full bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity"></div></div>
                   </button>
                 ))}
               </div>
@@ -353,37 +322,19 @@ export default function GameColombia() {
                 {(!isCorrect || timeLeft === 0) && (
                   <div className="text-slate-600">
                     <p>La respuesta era:</p>
-                    <p className="font-bold text-slate-900 text-xl mt-1">
-                      {questionType === 'standard' ? currentPlace.capital : currentPlace.name}
-                    </p>
+                    <p className="font-bold text-slate-900 text-xl mt-1">{questionType === 'standard' ? currentPlace.capital : currentPlace.name}</p>
                   </div>
                 )}
               </div>
-              
               {isCorrect && (
                 <div className="mb-4 bg-white p-3 rounded-2xl shadow-sm border border-slate-100">
                   <div className="relative w-full h-48 rounded-xl overflow-hidden mb-3 bg-slate-200">
-                    <img 
-                      src={`/img/${currentPlace.image_url}`} 
-                      alt={currentPlace.name} 
-                      className="object-cover w-full h-full"
-                      onError={(e) => { (e.target as HTMLImageElement).src = 'https://via.placeholder.com/400x300?text=Sin+Imagen'; }}
-                    />
+                    <img src={`/img/${currentPlace.image_url}`} alt={currentPlace.name} className="object-cover w-full h-full" onError={(e) => { (e.target as HTMLImageElement).src = 'https://via.placeholder.com/400x300?text=Sin+Imagen'; }} />
                   </div>
-                  <div className="flex gap-2 items-start">
-                    <Lightbulb className="text-yellow-500 shrink-0 mt-1" size={20} />
-                    <p className="text-slate-700 text-sm leading-relaxed italic">{currentFact}</p>
-                  </div>
+                  <div className="flex gap-2 items-start"><Lightbulb className="text-yellow-500 shrink-0 mt-1" size={20} /><p className="text-slate-700 text-sm leading-relaxed italic">{currentFact}</p></div>
                 </div>
               )}
-
-              <button 
-                onClick={nextQuestion}
-                className={`w-full py-4 rounded-xl font-black text-white shadow-lg flex items-center justify-center gap-2 transition-transform active:scale-95 ${isCorrect ? 'bg-green-600 hover:bg-green-700' : 'bg-slate-700 hover:bg-slate-800'}`}
-              >
-                <span>{currentIndex + 1 >= MAX_QUESTIONS ? 'Ver Resultados' : 'Siguiente Pregunta'}</span>
-                <RefreshCw size={20} />
-              </button>
+              <button onClick={nextQuestion} className={`w-full py-4 rounded-xl font-black text-white shadow-lg flex items-center justify-center gap-2 transition-transform active:scale-95 ${isCorrect ? 'bg-green-600 hover:bg-green-700' : 'bg-slate-700 hover:bg-slate-800'}`}><span>{currentIndex + 1 >= gameQueue.length ? 'Ver Resultados' : 'Siguiente Pregunta'}</span><RefreshCw size={20} /></button>
             </div>
           )}
         </div>

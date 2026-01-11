@@ -52,6 +52,8 @@ export default function GameSuramerica() {
   const [gameOver, setGameOver] = useState(false);
   const [savingScore, setSavingScore] = useState(false);
 
+  const startTimeRef = useRef<number>(0);
+
   useEffect(() => {
     async function fetchPlaces() {
       // FILTRO CLAVE: Solo traemos Suramérica
@@ -81,15 +83,17 @@ export default function GameSuramerica() {
     return () => clearInterval(timerId);
   }, [timeLeft, isTimerRunning, showFeedback, gameOver]);
 
-  const saveGameResult = async (finalScore: number) => {
+const saveGameResult = async (finalScore: number) => {
     setSavingScore(true);
     const { data: { user } } = await supabase.auth.getUser();
+    
     if (user) {
       await supabase.from('game_history').insert({
         user_id: user.id,
+        player_email: user.email, // <--- ¡ESTA ES LA LÍNEA NUEVA!
         score: finalScore,
         total_questions: MAX_QUESTIONS,
-        game_mode: 'suramerica' // ETIQUETA IMPORTANTE
+        game_mode: 'suramerica' // (O 'suramerica' o 'centro_norteamerica' según el archivo)
       });
     }
     setSavingScore(false);
@@ -112,6 +116,7 @@ export default function GameSuramerica() {
     setScore(0);
     setCurrentIndex(0);
     setGameOver(false);
+    startTimeRef.current = Date.now();
     prepareRound(selectedQuestions[0], 0, placesList);
   };
 
